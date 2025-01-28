@@ -16,9 +16,10 @@ ctk.set_default_color_theme("blue")
 
 # Constants
 PORT = 65432
-BUFFER_SIZE = 4096
-DISCOVERY_MSG = b'NETXEND_DISCOVERY'
 DISCOVERY_PORT = 65433
+BUFFER_SIZE = 4096
+DISCOVERY_MSG = "NETXEND_DISCOVERY"
+DISCOVERY_RESPONSE = "NETXEND_HERE"
 
 # Cross-platform setup
 def get_downloads_path():
@@ -42,15 +43,12 @@ class DropZoneFrame(ctk.CTkFrame):
         self.setup_ui()
 
     def setup_ui(self):
-        # Center label
         self.label = ctk.CTkLabel(
             self,
             text="Click to Select Files",
             font=("Helvetica", 18)
         )
         self.label.place(relx=0.5, rely=0.5, anchor="center")
-
-        # Add visual feedback on hover
         self.bind("<Enter>", self.on_enter)
         self.bind("<Leave>", self.on_leave)
 
@@ -65,13 +63,15 @@ class DropZoneFrame(ctk.CTkFrame):
 class NetXendApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        
-        # Window setup
         self.title("NetXend")
         self.geometry("1000x600")
         self.minsize(800, 500)
         
-        # Load icon
+        self.hostname = socket.gethostname()
+        self.discovery_socket = None
+        self.discover_thread = None
+        self.discovery_running = False
+        
         self.load_icon()
         self.setup_ui()
         self.start_network_services()
@@ -80,9 +80,7 @@ class NetXendApp(ctk.CTk):
         try:
             icon_path = "netxend.png"
             if os.path.exists(icon_path):
-                # For Windows and Linux
                 icon_image = Image.open(icon_path)
-                # Convert to PhotoImage for Tkinter
                 photo = ImageTk.PhotoImage(icon_image)
                 self.wm_iconphoto(True, photo)
         except Exception as e:
@@ -152,13 +150,54 @@ class NetXendApp(ctk.CTk):
         )
         self.scan_button.grid(row=1, column=1, padx=10, pady=5)
 
+    def start_discovery_service(self):
+        """Start the discovery service to listen for peer broadcasts"""
+        try:
+            self.discovery_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            self.discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            self.discovery_socket.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            self.discovery_socket.bind(('', DISCOVERY_PORT))
+            
+            self.discovery_running = True
+            
+            def discovery_listener():
+                while self.discovery_running:
+                    try:
+                        data, addr = self.discovery_socket.recvfrom(1024)
+                        msg = data.decode()
+                        
+                        if msg == DISCOVERY_MSG:
+                            # Send response with hostname
+                            response = json.dumps({
+                                "type": DISCOVERY_RESPONSE,
+                                "hostname": self.hostname
+                            })
+                            self.discovery_socket.sendto(response.encode(), addr)
+                        
+                        elif msg.startswith("{"):
+                            try:
+                                data = json.loads(msg)
+                                if data.get("type") == DISCOVERY_RESPONSE:
+                                    peers[addr[0]] = data.get("hostname", "Unknown")
+                                    self.after(100, self.update_peers_list)
+                            except json.JSONDecodeError:
+                                pass
+                                
+                    except Exception as e:
+                        print(f"Discovery error: {e}")
+                        time.sleep(1)
+            
+            self.discover_thread = threading.Thread(target=discovery_listener, daemon=True)
+            self.discover_thread.start()
+            
+        except Exception as e:
+            print(f"Could not start discovery service: {e}")
+
     def select_peer(self, event):
         global selected_peer
         try:
-            # Get clicked line
             index = self.peers_list.index(f"@{event.x},{event.y}")
             line = self.peers_list.get(f"{index} linestart", f"{index} lineend")
-            # Extract IP address from line (assuming format "name (ip)")
             ip_start = line.find("(") + 1
             ip_end = line.find(")")
             if ip_start > 0 and ip_end > ip_start:
@@ -191,21 +230,24 @@ class NetXendApp(ctk.CTk):
             self.status_label.configure(text=status_text)
         
     def scan_network(self):
+        """Broadcast discovery message to find peers"""
         self.status_label.configure(text="Scanning network...")
-        threading.Thread(target=self.discover_peers, daemon=True).start()
+        peers.clear()
+        self.update_peers_list()
         
+        try:
+            # Send broadcast message
+            msg = DISCOVERY_MSG.encode()
+            self.discovery_socket.sendto(msg, ('<broadcast>', DISCOVERY_PORT))
+            self.after(2000, lambda: self.status_label.configure(text="Ready"))
+        except Exception as e:
+            self.status_label.configure(text=f"Scan error: {str(e)}")
+            print(f"Scan error: {e}")
+            
     def update_peers_list(self):
         self.peers_list.delete("1.0", "end")
         for ip, name in peers.items():
             self.peers_list.insert("end", f"{name} ({ip})\n")
-        self.status_label.configure(text="Network scan complete")
-            
-    def discover_peers(self):
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
-            sock.sendto(DISCOVERY_MSG, ('<broadcast>', DISCOVERY_PORT))
-            time.sleep(1)
-            self.after(100, self.update_peers_list)
 
     def receive_file(self, conn):
         try:
@@ -246,7 +288,6 @@ class NetXendApp(ctk.CTk):
                 file_name = os.path.basename(file_path)
                 file_size = os.path.getsize(file_path)
                 
-                # Send file metadata
                 file_info = {
                     'name': file_name,
                     'size': file_size
@@ -287,7 +328,14 @@ class NetXendApp(ctk.CTk):
                         daemon=True
                     ).start()
 
+        # Start file receiver
         threading.Thread(target=receiver, daemon=True).start()
+        
+        # Start discovery service
+        self.start_discovery_service()
+        
+        # Initial network scan
+        self.after(1000, self.scan_network)
 
 if __name__ == "__main__":
     app = NetXendApp()
