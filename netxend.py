@@ -1,6 +1,5 @@
 import shutil
 import subprocess
-
 import customtkinter as ctk
 import socket
 import threading
@@ -25,7 +24,7 @@ DISCOVERY_MSG = "NETXEND_DISCOVERY"
 DISCOVERY_RESPONSE = "NETXEND_HERE"
 CONFIG_FILE = "netxend_config.json"
 BROADCAST_ADDR = '255.255.255.255'
-# Add these to your constants section at the top:
+
 PEER_TIMEOUT = 30  # Seconds before a peer is considered offline
 AUTO_SCAN_INTERVAL = 10000  # Milliseconds between automatic scans
 
