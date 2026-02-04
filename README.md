@@ -35,10 +35,15 @@ cd NetXend
 
 3. Install required dependencies:
 ```bash
-pip install customtkinter pillow
+pip install customtkinter pillow netifaces
 ```
 
-4. Run the application:
+4. (Optional) For drag-and-drop support:
+```bash
+pip install tkinterdnd2
+```
+
+5. Run the application:
 ```bash
 python netxend.py
 ```
