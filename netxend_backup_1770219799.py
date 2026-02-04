@@ -893,9 +893,9 @@ class SettingsDialog(ctk.CTkToplevel):
         self.geometry(f"+{x}+{y}")
     
     def setup_ui(self):
-        # Header with icon - fixed at top
+        # Header with icon
         header_frame = ctk.CTkFrame(self, fg_color="transparent")
-        header_frame.pack(pady=(28, 20))
+        header_frame.pack(pady=(28, 24))
         
         header = ctk.CTkLabel(
             header_frame,
@@ -913,20 +913,15 @@ class SettingsDialog(ctk.CTkToplevel):
         )
         subtitle.pack(pady=(4, 0))
         
-        # Scrollable settings container
-        scroll_container = ctk.CTkScrollableFrame(
+        # Settings container with border
+        container = ctk.CTkFrame(
             self, 
             fg_color=COLORS["card_bg"], 
             corner_radius=20,
             border_width=1,
-            border_color=COLORS["border"],
-            scrollbar_button_color=COLORS["border"],
-            scrollbar_button_hover_color=COLORS["accent"]
+            border_color=COLORS["border"]
         )
-        scroll_container.pack(fill="both", expand=True, padx=28, pady=(0, 20))
-        
-        # Use scroll_container instead of container for all settings
-        container = scroll_container
+        container.pack(fill="both", expand=True, padx=28, pady=(0, 24))
         
         # Display Name
         self._create_setting_row(container, "Display Name", "display_name", "text", 
@@ -1032,13 +1027,9 @@ class SettingsDialog(ctk.CTkToplevel):
         )
         theme_menu.pack(side="right", padx=(0, 8))
         
-        # Bottom spacer for scroll padding
-        spacer = ctk.CTkFrame(container, fg_color="transparent", height=20)
-        spacer.pack(fill="x")
-        
-        # Action Buttons - modern pill style (fixed at bottom)
+        # Action Buttons - modern pill style
         btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        btn_frame.pack(pady=(8, 24))
+        btn_frame.pack(pady=(0, 28))
         
         cancel_btn = ctk.CTkButton(
             btn_frame,
@@ -1176,8 +1167,8 @@ class NetXendApp(ctk.CTk):
         # Configure window
         self.configure(fg_color=COLORS["bg_dark"])
         self.title("NetXend")
-        self.geometry("1400x800")
-        self.minsize(1200, 700)
+        self.geometry("1200x750")
+        self.minsize(1000, 650)
         
         # Load config first
         self.config = load_config()
@@ -1479,7 +1470,7 @@ class NetXendApp(ctk.CTk):
         # ========== SIDEBAR ==========
         self.sidebar = ctk.CTkFrame(
             self, 
-            width=420, 
+            width=300, 
             corner_radius=0, 
             fg_color=COLORS["bg_medium"]
         )
@@ -1569,14 +1560,15 @@ class NetXendApp(ctk.CTk):
         self.settings_btn = ctk.CTkButton(
             settings_btn_frame,
             text="⚙️ Settings",
-            height=44,
-            corner_radius=22,
+            width=200,
+            height=40,
+            corner_radius=20,
             fg_color=COLORS["card_bg"],
             hover_color=COLORS["bg_light"],
-            font=("SF Pro Display", 14) if platform.system() == "Darwin" else ("Segoe UI", 14),
+            font=("SF Pro Display", 13) if platform.system() == "Darwin" else ("Segoe UI", 13),
             command=self.open_settings
         )
-        self.settings_btn.pack(fill="x", padx=8)
+        self.settings_btn.pack(fill="x")
 
         # ========== MAIN CONTENT ==========
         self.main_content = ctk.CTkFrame(self, fg_color=COLORS["bg_dark"], corner_radius=0)
